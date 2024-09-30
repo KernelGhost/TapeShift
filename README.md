@@ -251,10 +251,7 @@ Although [a patch has been submitted to add support for '1D19:6108'](https://lor
 <img src="./Multimedia/Demonstration.png" alt="Demonstration" width="720">
 
 ## Sample Video Capture Showcase
- <video width="720" height="576" controls>
-    <source src="./Multimedia/Showcase.mp4" type="video/mp4">
-Sample Video Capture Showcase
-</video>
+https://github.com/KernelGhost/TapeShift/raw/refs/heads/main/Multimedia/Showcase.mp4
 
 ## Product Images
 <table>
