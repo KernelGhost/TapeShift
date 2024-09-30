@@ -180,7 +180,7 @@ Although [a patch has been submitted to add support for '1D19:6108'](https://lor
     ```
 
 11. (Optional) Create and enroll a key pair to sign the compiled driver. If you already have a set of keys, you can skip ahead to the next step.
-    1. Install OpenSSH.
+    1. Install OpenSSL.
 
         ```bash
         sudo dnf install openssl
