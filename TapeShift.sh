@@ -38,7 +38,7 @@ trap exit_script SIGINT SIGTERM EXIT
 ANSI_BLUE="\033[1;34m"            # Bold Blue Text.
 ANSI_CLEAR="\033[0m"              # Reset Text Formatting.
 ANSI_GREEN="\033[1;32m"           # Bold Green Text.
-ANSI_GREY="\e[38;5;250m"              # Grey Text.
+ANSI_GREY="\e[38;5;250m"          # Grey Text.
 ANSI_RED="\033[1;31m"             # Bold Red Text.
 ANSI_YELLOW="\033[1;38;5;214m"    # Bold Yellow Text.
 readonly ANSI_BLUE
@@ -49,11 +49,11 @@ readonly ANSI_RED
 readonly ANSI_YELLOW
 
 # User Input Default Values
-default_audio_bitrate="192"                                    # Capture audio bitrate in kbps.
-default_crf="20"                                               # Constant Rate Factor (CRF).
-default_preset="fast"                                          # H264 encoding preset.
-default_output_directory="."                                   # Output the capture in the working directory.
-default_output_file_name="VHS_$(date +"%Y%m%d_%H%M%S").ts"     # Example: 'VHS_20240927_220756.ts'.
+default_audio_bitrate="192"                                   # Capture audio bitrate in kbps.
+default_crf="20"                                              # Constant Rate Factor (CRF).
+default_preset="fast"                                         # H264 encoding preset.
+default_output_directory="."                                  # Output the capture in the working directory.
+default_output_file_name="VHS_$(date +"%Y%m%d_%H%M%S").ts"    # Example: 'VHS_20240927_220756.ts'.
 readonly default_audio_bitrate
 readonly default_crf
 readonly default_preset
@@ -62,8 +62,8 @@ readonly default_output_file_name
 
 # Other
 h264_presets=("ultrafast" "superfast" "veryfast" "faster" "fast" "medium" "slow" "slower" "veryslow" "placebo")
-illegal_chars='[<>:"|?*]'    # Characters not permitted in directory names and paths.
-named_pipe="/tmp/vhs_pipe"   # Path to named pipe used to facilitate live preview during capture.
+illegal_chars='[<>:"|?*]'     # Characters not permitted in directory names and paths.
+named_pipe="/tmp/vhs_pipe"    # Path to named pipe used to facilitate live preview during capture.
 readonly h264_presets
 readonly illegal_chars
 readonly named_pipe
@@ -83,17 +83,17 @@ output_directory=""    # Example: '~/Videos/My\ VHS\ Captures'.
 output_file_name=""    # Example: 'My\ Parents\ Wedding\ Ceremony'.
 
 # Other
-output_path=""            # Example: '~/Videos/My\ VHS\ Captures/My\ Parents\ Wedding\ Ceremony.ts'.
-video_input_info=""       # Output of 'ffprobe' to determine characteristics of input video stream.
-video_input_width=""      # Example: '720'.
-video_input_height=""     # Example: '576'.
-video_resolution=""       # Example: '576x720'.
-frame_rate=""             # Example: '25'.
-video_standard=""         # Example: 'PAL'.
-ffmpeg_command=()         # Used to construct the FFMPEG command.
-ffmpeg_pid=""             # Set by '$!' at runtime.
-ffplay_pid=""             # Set by '$!' at runtime.
-ff_error_flag=1           # Used to detect unexpected termination of FFMPEG.
+output_path=""           # Example: '~/Videos/My\ VHS\ Captures/My\ Parents\ Wedding\ Ceremony.ts'.
+video_input_info=""      # Output of 'ffprobe' to determine characteristics of input video stream.
+video_input_width=""     # Example: '720'.
+video_input_height=""    # Example: '576'.
+video_resolution=""      # Example: '576x720'.
+frame_rate=""            # Example: '25'.
+video_standard=""        # Example: 'PAL'.
+ffmpeg_command=()        # Used to construct the FFMPEG command.
+ffmpeg_pid=""            # Set by '$!' at runtime.
+ffplay_pid=""            # Set by '$!' at runtime.
+ff_error_flag=1          # Used to detect unexpected termination of FFMPEG.
 
 # FUNCTIONS
 # Function to ensure a clean exit on SIGINT & SIGTERM.
