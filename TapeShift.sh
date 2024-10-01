@@ -61,8 +61,8 @@ readonly default_output_file_name
 
 # Other
 h264_presets=("ultrafast" "superfast" "veryfast" "faster" "fast" "medium" "slow" "slower" "veryslow" "placebo")
-illegal_chars='[<>:"|?*/]'    # Characters not permitted in directory names and paths.
-named_pipe="/tmp/vhs_pipe"    # Path to named pipe used to facilitate live preview during capture.
+illegal_chars='[<>:"|?*]'    # Characters not permitted in directory names and paths.
+named_pipe="/tmp/vhs_pipe"   # Path to named pipe used to facilitate live preview during capture.
 readonly h264_presets
 readonly illegal_chars
 readonly named_pipe
@@ -262,10 +262,12 @@ function check_user_input() {
     fi
 
     # Validate path to requested output directory.
+    output_directory="${output_directory%/}" # Remove trailing '/' (if it exists).
+
     if [[ "$output_directory" =~ $illegal_chars ]]; then
         echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Output directory '${output_directory}' contains illegal characters!"
         echo "The following characters are not allowed in the output directory:"
-        echo "< > : \" | ? * /"
+        echo "< > : \" | ? *"
         echo "Please enter a valid path to the desired output directory."
         exit 7
     fi
