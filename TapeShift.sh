@@ -19,14 +19,15 @@
 # 4  --> Invalid Audio Bitrate.
 # 5  --> Invalid CRF.
 # 6  --> Invalid H.264 Preset.
-# 7  --> Invalid Output Directory.
-# 8  --> Output Directory Creation Failure.
-# 9  --> Output Directory Unwritable.
-# 10  --> Invalid Output File Name.
-# 11 --> Requested Output Path Contains Existing File.
-# 12 --> Unsupported Detected Video Standard.
-# 13 --> Operation Cancelled By User.
-# 14 --> FFMPEG/FFPLAY Command Failure.
+# 7  --> Nonexistent Home Folder.
+# 8  --> Invalid Output Directory.
+# 9  --> Output Directory Creation Failure.
+# 10 --> Output Directory Unwritable.
+# 11 --> Invalid Output File Name.
+# 12 --> Requested Output Path Contains Existing File.
+# 13 --> Unsupported Detected Video Standard.
+# 14 --> Operation Cancelled By User.
+# 15 --> FFMPEG/FFPLAY Command Failure.
 # -----------------------------------------------------------------------
 
 # TRAP SIGNALS
@@ -262,14 +263,30 @@ function check_user_input() {
     fi
 
     # Validate path to requested output directory.
-    output_directory="${output_directory%/}" # Remove trailing '/' (if it exists).
+    if [[ "$output_directory" =~ ^~(/.*)?$ ]]; then
+        output_directory="${HOME}/${output_directory:2}"
+    elif [[ "$output_directory" =~ ^~[a-z_]([a-z0-9_-]{0,31}|[a-z0-9_-]{0,30}\$)$ ]]; then
+        local username
+        local rest_of_path
+        local user_home
+        username=$(echo "$output_directory" | cut -d'/' -f1 | cut -d'~' -f2)
+        rest_of_path=$(echo "$output_directory" | cut -d'/' -f2-)
+        user_home=$(getent passwd "$username" | cut -d: -f6)
+
+        if [[ -n "$user_home" ]]; then
+            output_directory="${user_home}/${rest_of_path}"
+        else
+            echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Home folder for user '${username}' does not exist!"
+            exit 7
+        fi
+    fi
 
     if [[ "$output_directory" =~ $illegal_chars ]]; then
         echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Output directory '${output_directory}' contains illegal characters!"
         echo "The following characters are not allowed in the output directory:"
         echo "< > : \" | ? *"
         echo "Please enter a valid path to the desired output directory."
-        exit 7
+        exit 8
     fi
 
     if [ ! -d "$output_directory" ]; then
@@ -279,13 +296,13 @@ function check_user_input() {
         # Attempt to create the directory.
         if ! mkdir -p "$output_directory"; then
             echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Failed to create output directory!"
-            exit 8
+            exit 9
         fi
     else
         # Check if the directory is writable.
         if [ ! -w "$output_directory" ]; then
             echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Output directory exists, but is not writable!"
-            exit 9
+            exit 10
         fi
     fi
 
@@ -293,7 +310,7 @@ function check_user_input() {
     if ! [[ "$output_file_name" =~ ^[0-9a-zA-Z._-]+$ ]]; then
         echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} The output file name must not contain illegal characters!"
         echo "Ensure the output file name only contains letters, numbers, underscores, hyphens and periods."
-        exit 10
+        exit 11
     fi
 
     if [[ ! "$output_file_name" =~ \.ts$ ]]; then
@@ -303,6 +320,7 @@ function check_user_input() {
     fi
 
     # Combine directory and file name to create output path.
+    output_directory="${output_directory%/}" # Remove trailing '/' (if it exists).
     output_path="${output_directory}/${output_file_name}"
 
     # Check whether a file at the requested output path already exists.
@@ -312,9 +330,11 @@ function check_user_input() {
         read -r -p "Do you want to overwrite them? (y/n): " user_choice
         if [[ ! "$user_choice" =~ ^[yY]$ ]]; then
             echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Operation cancelled by user!"
-            exit 11
+            exit 12
         fi
     fi
+
+    echo -e "${ANSI_GREEN}[DONE]${ANSI_CLEAR} Valid user input was provided!"
 }
 
 # Function to check the input video characteristics (i.e. resolution and frame rate.)
@@ -342,7 +362,7 @@ function get_video_specs() {
         read -r -p "Continue anyway? (y/n): " user_choice
         if [[ ! "$user_choice" =~ ^[yY]$ ]]; then
             echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Operation cancelled by user!"
-            exit 12
+            exit 13
         fi
     fi
 
@@ -500,7 +520,7 @@ function confirm_command_execution() {
     read -r -p "Do you want to proceed with this command? (y/n): " user_choice
     if [[ ! "$user_choice" =~ ^[yY]$ ]]; then
         echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Operation cancelled by user!"
-        exit 13
+        exit 14
     fi
 }
 
@@ -554,7 +574,7 @@ ffplay_pid=$!
 # Check if FFPLAY and FFMPEG failed to start.
 if [ -z "$ffmpeg_pid" ] || [ -z "$ffplay_pid" ]; then
     echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} FFMPEG and/or FFPLAY command failed!"
-    exit 14
+    exit 15
 fi
 
 # Prevent script from exiting until user issues SIGINT.
