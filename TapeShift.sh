@@ -93,13 +93,17 @@ video_standard=""         # Example: 'PAL'.
 ffmpeg_command=()         # Used to construct the FFMPEG command.
 ffmpeg_pid=""             # Set by '$!' at runtime.
 ffplay_pid=""             # Set by '$!' at runtime.
+ff_error_flag=1           # Used to detect unexpected termination of FFMPEG.
 
 # FUNCTIONS
 # Function to ensure a clean exit on SIGINT & SIGTERM.
 function exit_script() {
     if ps -p "$ffmpeg_pid" &>/dev/null || ps -p "$ffplay_pid" &>/dev/null; then
-        # Notify user that the request to halt the script was received.
-        echo -e "\n${ANSI_YELLOW}[INFO]${ANSI_CLEAR} Stopping capture..."
+        # Only provide feedback if FFMPEG has not terminated already.
+        if [ "$ff_error_flag" -eq 1 ]; then
+            # Notify user that the request to halt the script was received.
+            echo -e "\n${ANSI_YELLOW}[INFO]${ANSI_CLEAR} Stopping capture..."
+        fi
 
         # Request FFMPEG and FFPLAY exit gracefully via SIGINT (Ctrl + C).
         kill -SIGINT "$ffmpeg_pid" &>/dev/null
@@ -109,12 +113,18 @@ function exit_script() {
         wait "$ffmpeg_pid" &>/dev/null
         wait "$ffplay_pid" &>/dev/null
 
-        # Notify user that the capture has stopped.
-        echo -e "${ANSI_GREEN}[DONE]${ANSI_CLEAR} Capture stopped!"
+        # Only provide feedback if FFMPEG has not terminated already.
+        if [ "$ff_error_flag" -eq 1 ]; then
+            # Notify user that the capture has stopped.
+            echo -e "${ANSI_GREEN}[DONE]${ANSI_CLEAR} Capture stopped!"
+        fi
     fi
 
     # Remove the named pipe if it exists.
     rm -f "$named_pipe"
+
+    # Unset flag.
+    ff_error_flag=0
 }
 
 # Function to check if all required dependencies are available.
@@ -571,15 +581,19 @@ ffmpeg_pid=$!
 ffplay "$named_pipe" -window_title "VHS Digitisation Preview" -fflags nobuffer &>/dev/null &
 ffplay_pid=$!
 
-# Check if FFPLAY and FFMPEG failed to start.
-if [ -z "$ffmpeg_pid" ] || [ -z "$ffplay_pid" ]; then
+# Prevent script from exiting until user issues SIGINT.
+# Execution should only push past this point once either:
+# 1. 'exit_script' is called via SIGINT (Ctrl + C).
+# 2. Unexpected termination of FFMPEG.
+wait "$ffmpeg_pid" 2>/dev/null
+
+# If flag remains unset, FFMPEG/FFPLAY terminated without user-requested SIGINT.
+if [[ "$ff_error_flag" -eq 1 ]]; then
     echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} FFMPEG and/or FFPLAY command failed!"
+    echo "Please see the log at '${output_path%.*}.log' for details."
+    ff_error_flag=0
     exit 15
 fi
-
-# Prevent script from exiting until user issues SIGINT.
-# Execution should only push past this point once 'exit_script' is called via SIGINT (Ctrl + C).
-wait "$ffmpeg_pid" 2>/dev/null
 
 # Notify user.
 echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} Finalising capture..."
@@ -587,21 +601,27 @@ echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} Finalising capture..."
 # Convert the capture file to '.mp4' without re-encoding.
 final_conversion_output=$(ffmpeg -y -i "$output_path" -c:a copy -c:v copy "${output_path%.*}.mp4" 2>&1)
 if [ -n "$final_conversion_output" ]; then
-    echo -e "\n\n---------------- .TS TO .MP4 ----------------" >> "${output_path%.*}.log"
+    echo -e "\n---------------- .TS TO .MP4 ----------------" >> "${output_path%.*}.log"
     echo "$final_conversion_output" >> "${output_path%.*}.log"
 fi
 
 # Remove the original capture file.
 if [ -f "${output_path%.*}.mp4" ]; then
     rm "$output_path"
+
+    # Provide trimming instructions.
+    echo ""
+    echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} To trim output file '${output_path%.*}.mp4', use:"
+    echo -e "${ANSI_GREY}ffmpeg -ss [start_time] -i \"${output_path%.*}.mp4\" -to [end_time] -c copy \"${output_path%.*}_trimmed.mp4\"${ANSI_CLEAR}"
+    echo "Both [start_time] and [end_time] can be specified using either 'hh:mm:ss' or as a number of seconds."
+    echo ""
+
+    # Notify user.
+    echo -e "${ANSI_GREEN}[DONE]${ANSI_CLEAR} Finished!"
+else
+    echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Failed to finalise capture!"
+    echo "A partial, potentially corrupt capture may exist at '${output_path}'."
+    echo "Please see the log at '${output_path%.*}.log' for details."
+    ff_error_flag=0
+    exit 16
 fi
-
-# Provide trimming instructions.
-echo ""
-echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} To trim output file '${output_path%.*}.mp4', use:"
-echo -e "${ANSI_GREY}ffmpeg -ss [start_time] -i \"${output_path%.*}.mp4\" -to [end_time] -c copy \"${output_path%.*}_trimmed.mp4\"${ANSI_CLEAR}"
-echo "Both [start_time] and [end_time] can be specified using either 'hh:mm:ss' or as a number of seconds."
-echo ""
-
-# Notify user.
-echo -e "${ANSI_GREEN}[DONE]${ANSI_CLEAR} Finished!"
