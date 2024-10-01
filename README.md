@@ -200,7 +200,7 @@ Although [a patch has been submitted to add support for '1D19:6108'](https://lor
         openssl genrsa -out private_key_for_cx231xx.priv 2048
 
         # Public Key
-        openssl req -new -x509 -key private_key_for_cx231xx.priv -out public_key_for_cx231xx.der -days 36500 -subj "/CN=Kernel Module Signing"
+        openssl req -new -x509 -key private_key_for_cx231xx.priv -outform DER -out public_key_for_cx231xx.der -days 36500 -subj "/CN=Kernel Module Signing"
         ```
 
     4. Enroll the public key within the UEFI.
