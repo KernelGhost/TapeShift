@@ -540,8 +540,7 @@ echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} Complete the capture by requesting SIGI
 # Start FFMPEG.
 # Split stdout using 'tee' to both the output file and the named pipe.
 # Ensure stderr is instead captured within a log file.
-echo "" > "${output_path%.*}.log"
-echo "---------------- VHS TO .TS ----------------" >> "${output_path%.*}.log"
+echo "---------------- VHS TO .TS ----------------" > "${output_path%.*}.log"
 "${ffmpeg_command[@]}" > >(tee "$output_path" > "$named_pipe") 2>>"${output_path%.*}.log" &
 ffmpeg_pid=$!
 
