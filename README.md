@@ -249,9 +249,10 @@ Although [a patch has been submitted to add support for '1D19:6108'](https://lor
 
 > [!NOTE]
 > You can easily undo all the above changes and switch back to the default version of the `cx231xx` driver by:
-> 1. Using `mv` to rename the default driver back to its original name (remove '.bak').
-> 2. Deleting `cx231xx.ko` from `/lib/modules/$(uname -r)/kernel/drivers/media/usb/cx231xx/`.
-> 3. Removing the MOK certificate (public key) from the UEFI using `mokutil`. Please only do this if no other kernel modules have been signed using the same key!
+> 1. Deleting `cx231xx.ko.xz` from `/lib/modules/$(uname -r)/kernel/drivers/media/usb/cx231xx/`.
+> 2. Using `mv` to rename the default driver back to its original name (i.e., remove '.bak').
+> 3. Running `sudo dracut --force`, `sudo modprobe -r cx231xx` and `sudo modprobe cx231xx`.
+> 4. Removing the public key from the UEFI using `sudo mokutil --delete ~/keys/public_key_for_cx231xx.der`. Please only do this if no other kernel modules have been signed using the same key!
 
 ## Demonstration
 <img src="./Multimedia/Demonstration.png" alt="Demonstration" width="720">
