@@ -136,7 +136,7 @@ Although [a patch has been submitted to add support for '1D19:6108'](https://lor
         make -C $(KERNEL_DIR) M=$(PWD) clean
     ```
 
-9. Run `make` from within the `drivers/media/usb/cx231xx` directory. The output should resemble:
+9. Run `make clean && make` from within the `drivers/media/usb/cx231xx` directory. The output should resemble:
 
     ```
     make -C /lib/modules/6.10.10-200.fc40.x86_64/build M=/home/rohanbarar/Desktop/cx231xx_patch/drivers/media/usb/cx231xx modules
@@ -222,10 +222,11 @@ Although [a patch has been submitted to add support for '1D19:6108'](https://lor
     sudo /usr/src/kernels/$(uname -r)/scripts/sign-file sha256 ~/keys/private_key_for_cx231xx.priv ~/keys/public_key_for_cx231xx.der /lib/modules/$(uname -r)/kernel/drivers/media/usb/cx231xx/cx231xx.ko
     ```
 
-12. Disable the existing copy of the `cx231xx` driver.
+12. Disable the existing copy of the `cx231xx` driver and replace it with your new patched copy.
 
     ```bash
     sudo mv /lib/modules/$(uname -r)/kernel/drivers/media/usb/cx231xx/cx231xx.ko.xz /lib/modules/$(uname -r)/kernel/drivers/media/usb/cx231xx/cx231xx.ko.xz.bak
+    sudo xz -zv /lib/modules/$(uname -r)/kernel/drivers/media/usb/cx231xx/cx231xx.ko
     sudo dracut --force
     ```
 
@@ -236,12 +237,17 @@ Although [a patch has been submitted to add support for '1D19:6108'](https://lor
     sudo modprobe cx231xx    # Load Patched Driver
     ```
 
-> [!IMPORTANT]  
+14. Confirm the patched driver was loaded.
+    ```bash
+    sudo modinfo cx231xx
+    ```
+
+> [!IMPORTANT]
 > Steps marked as '(Optional)' are mandatory on systems with 'Secure Boot' enabled.
 > The process of manually compiling and signing the patched version of the driver will need to be repeated each time the kernel is updated.
 > While there are automated solutions available (e.g. DKMS), the method described above serves as a temporary workaround until [my patch](https://lore.kernel.org/linux-media/20240926235048.283608-2-rohan.barar@gmail.com/T/#u) is merged into the `cx231xx` driver.
 
-> [!NOTE]  
+> [!NOTE]
 > You can easily undo all the above changes and switch back to the default version of the `cx231xx` driver by:
 > 1. Using `mv` to rename the default driver back to its original name (remove '.bak').
 > 2. Deleting `cx231xx.ko` from `/lib/modules/$(uname -r)/kernel/drivers/media/usb/cx231xx/`.
