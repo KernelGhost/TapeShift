@@ -389,7 +389,7 @@ function check_vaapi() {
 
     # Query FFMPEG to identify hardware acceleration options.
     hw_accel_features=$(ffmpeg -hwaccels 2>/dev/null)
-    
+
     # Check for VAAPI support.
     if echo "$hw_accel_features" | grep -q "vaapi"; then
         # Identify the correct path to the VAAPI render device in '/dev/dri/'.
@@ -569,10 +569,21 @@ confirm_command_execution
 echo -e "\n${ANSI_BLUE}[INFO]${ANSI_CLEAR} Capturing..."
 echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} Complete the capture by requesting SIGINT (Ctrl + C)."
 
+# Create log.
+{
+    echo "################  INPUT VIDEO STANDARD  ################"
+    echo "${video_standard} (${video_resolution}) [${frame_rate} fps]"
+    echo ""
+    echo "################       VHS TO .TS       ################"
+    echo "----------------     FFMPEG COMMAND     ----------------"
+    echo "${ffmpeg_command[*]} > >(tee \"$output_path\" > \"$named_pipe\") 2>\"${output_path%.*}.log\" &"
+    echo ""
+} > "${output_path%.*}.log"
+
 # Start FFMPEG.
 # Split stdout using 'tee' to both the output file and the named pipe.
 # Ensure stderr is instead captured within a log file.
-echo "---------------- VHS TO .TS ----------------" > "${output_path%.*}.log"
+echo "---------------- FFMPEG OUTPUT (STDERR) ----------------" >> "${output_path%.*}.log"
 "${ffmpeg_command[@]}" > >(tee "$output_path" > "$named_pipe") 2>>"${output_path%.*}.log" &
 ffmpeg_pid=$!
 
@@ -599,11 +610,15 @@ fi
 echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} Finalising capture..."
 
 # Convert the capture file to '.mp4' without re-encoding.
-final_conversion_output=$(ffmpeg -y -i "$output_path" -c:a copy -c:v copy "${output_path%.*}.mp4" 2>&1)
-if [ -n "$final_conversion_output" ]; then
-    echo -e "\n---------------- .TS TO .MP4 ----------------" >> "${output_path%.*}.log"
-    echo "$final_conversion_output" >> "${output_path%.*}.log"
-fi
+{
+    echo ""
+    echo "################       .TS TO MP4       ################"
+    echo "----------------     FFMPEG COMMAND     ----------------"
+    echo "ffmpeg -y -i \"$output_path\" -c:a copy -c:v copy \"${output_path%.*}.mp4\" 2>>\"${output_path%.*}.log\""
+    echo ""
+    echo "---------------- FFMPEG OUTPUT (STDERR) ----------------"
+} >> "${output_path%.*}.log"
+ffmpeg -y -i "$output_path" -c:a copy -c:v copy "${output_path%.*}.mp4" 2>>"${output_path%.*}.log"
 
 # Remove the original capture file.
 if [ -f "${output_path%.*}.mp4" ]; then
@@ -618,6 +633,12 @@ if [ -f "${output_path%.*}.mp4" ]; then
 
     # Notify user.
     echo -e "${ANSI_GREEN}[DONE]${ANSI_CLEAR} Finished!"
+
+    # Log completion.
+    {
+        echo ""
+        echo "################        FINISHED        ################"
+    } >> "${output_path%.*}.log"
 else
     echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Failed to finalise capture!"
     echo "A partial, potentially corrupt capture may exist at '${output_path}'."
