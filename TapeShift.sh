@@ -664,7 +664,7 @@ function trim_output() {
             read -r -p "Trim start position: " start_param
             
             # Validate start_param.
-            if [[ "$start_param" =~ ^([0-9]*:[0-5][0-9]:[0-5][0-9]([.][0-9]+)?)|([0-9]+([.][0-9]+)?(s|ms|us)?)$ ]]; then
+            if [[ "$start_param" =~ ^([0-9]+:)?([0-5][0-9]:[0-5][0-9]([.][0-9]+)?)|([0-9]+([.][0-9]+)?(s|ms|us)?)$ ]]; then
                 break
             else
                 echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} INVALID TRIM START POSITION!"
@@ -710,7 +710,7 @@ function trim_output() {
             } >> "${output_path%.*}.log"
 
             # Run FFMPEG command.
-            ffmpeg -copyts -ss ${start_param} -i "${output_path%.*}.mp4" -to ${end_param} -map 0 -c copy "${output_path%.*}_TRIMMED.mp4" 2>>"${output_path%.*}.log"
+            ffmpeg -copyts -ss "${start_param}" -i "${output_path%.*}.mp4" -to "${end_param}" -map 0 -c copy "${output_path%.*}_TRIMMED.mp4" 2>>"${output_path%.*}.log"
 
             # Check output.
             if [ -f "${output_path%.*}_TRIMMED.mp4" ]; then
