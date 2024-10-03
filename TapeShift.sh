@@ -363,7 +363,7 @@ function check_user_input() {
     # Check whether a file at the requested output path already exists.
     if [ -e "$output_path" ] || [ -e "${output_path%.*}.mp4" ] || [ -e "${output_path%.*}.log" ]; then
         local user_choice
-        echo -e "${ANSI_YELLOW}[WARN]${ANSI_CLEAR} File(s) with the same name already exist at '${output_path}'!"
+        echo -e "${ANSI_YELLOW}[WARN]${ANSI_CLEAR} File(s) with the same name already exist at '${output_directory}'!"
         read -r -p "Do you want to overwrite them? (y/n): " user_choice
         if [[ ! "$user_choice" =~ ^[yY]$ ]]; then
             echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Operation cancelled by user!"
@@ -482,7 +482,7 @@ function construct_ffmpeg_command() {
             -af aresample=async=1                      # Resample the audio to keep it in sync with the video by introducing small adjustments.
 
             # Video Codec & Encoding Settings
-            -c:v h265_vaapi                            # Use H.265 (HEVC) video codec with VAAPI hardware acceleration.
+            -c:v hevc_vaapi                            # Use HEVC (H.265) video codec with VAAPI hardware acceleration.
             -r "$frame_rate"                           # Set the output frame rate.
             -fps_mode cfr                              # Frames will be duplicated and dropped to achieve exactly the requested constant frame rate.
             -qp "$crf"                                 # Set Quantization Parameter.
