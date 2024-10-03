@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
 #########################################################################
-#                         VHS Digitisation Script                       #
+#                               TapeShift                               #
 #########################################################################
 
 # About:     Script for digitising VHS tapes using a USB capture device
 # Device:    1D19:6108 Dexatek Technology Ltd USB Video Grabber
 # Author:    Rohan Barar <rohan.barar@gmail.com>
-# Date:      28 September 2024
+# Date:      03 October 2024
 #########################################################################
 
 # Exit Status Codes:
@@ -28,6 +28,8 @@
 # 13 --> Unsupported Detected Video Standard.
 # 14 --> Operation Cancelled By User.
 # 15 --> FFMPEG/FFPLAY Command Failure.
+# 16 --> Capture Finalisation Failure.
+# 17 --> Capture Trimming Failure.
 # -----------------------------------------------------------------------
 
 # TRAP SIGNALS
@@ -50,8 +52,8 @@ readonly ANSI_YELLOW
 
 # User Input Default Values
 default_audio_bitrate="192"                                   # Capture audio bitrate in kbps.
-default_crf="20"                                              # Constant Rate Factor (CRF).
-default_preset="fast"                                         # H264 encoding preset.
+default_crf="21"                                              # Constant Rate Factor (CRF).
+default_preset="fast"                                         # H265 encoding preset.
 default_output_directory="."                                  # Output the capture in the working directory.
 default_output_file_name="VHS_$(date +"%Y%m%d_%H%M%S").ts"    # Example: 'VHS_20240927_220756.ts'.
 readonly default_audio_bitrate
@@ -61,10 +63,10 @@ readonly default_output_directory
 readonly default_output_file_name
 
 # Other
-h264_presets=("ultrafast" "superfast" "veryfast" "faster" "fast" "medium" "slow" "slower" "veryslow" "placebo")
+h265_presets=("ultrafast" "superfast" "veryfast" "faster" "fast" "medium" "slow" "slower" "veryslow" "placebo")
 illegal_chars='[<>:"|?*]'     # Characters not permitted in directory names and paths.
 named_pipe="/tmp/vhs_pipe"    # Path to named pipe used to facilitate live preview during capture.
-readonly h264_presets
+readonly h265_presets
 readonly illegal_chars
 readonly named_pipe
 
@@ -125,6 +127,31 @@ function exit_script() {
 
     # Unset flag.
     ff_error_flag=0
+}
+
+function print_title() {
+    # Width: 46 characters.
+    # Height: 8 characters.
+    local BOLD_ITALIC_TEXT="\e[1m\e[3m"
+
+    # Print script name.
+    # ASCII Art: 'Calligraphy' by Evangelos "GeopJr" Paterakis (Theme: 'Big')
+    # https://flathub.org/apps/dev.geopjr.Calligraphy
+    cat << "EOF"
+ _______                _____ _     _  __ _   
+|__   __|              / ____| |   (_)/ _| |  
+   | | __ _ _ __   ___| (___ | |__  _| |_| |_ 
+   | |/ _` | '_ \ / _ \\___ \| '_ \| |  _| __|
+   | | (_| | |_) |  __/____) | | | | | | | |_ 
+   |_|\__,_| .__/ \___|_____/|_| |_|_|_|  \__|
+           | |                                
+           |_|                                
+EOF
+
+    # Print version and author information.
+    echo -e "${BOLD_ITALIC_TEXT}\
+       v1.0.0 (03102024) by Rohan Barar       \
+${ANSI_CLEAR}\n"
 }
 
 # Function to check if all required dependencies are available.
@@ -194,7 +221,7 @@ function capture_user_input() {
     read -r -p "Enter the video input device (default: ${default_video_device}): " video_device
     read -r -p "Enter the audio device address (default: ${default_audio_device}): " audio_device
     read -r -p "Enter the audio bitrate in kbps (default: ${default_audio_bitrate}): " audio_bitrate
-    read -r -p "Enter the Constant Rate Factor (CRF) value (default: ${default_crf}) [recommended: 18-23]: " crf
+    read -r -p "Enter the Constant Rate Factor (CRF) value (default: ${default_crf}) [recommended: 20-23]: " crf
     read -r -p "Enter the desired H.264 preset (default: ${default_preset}): " preset # "medium" provides a good balance between speed, quality and compression efficiency.
     read -r -p "Enter the output directory (default: ${default_output_directory}): " output_directory
     read -r -p "Enter the output file name (default: ${default_output_file_name}): " output_file_name
@@ -253,10 +280,10 @@ function check_user_input() {
     fi
 
     # Validate requested preset.
-    local h264_preset
+    local h265_preset
     local valid_preset=0
-    for h264_preset in "${h264_presets[@]}"; do
-        if [[ "$h264_preset" == "$preset" ]]; then
+    for h265_preset in "${h265_presets[@]}"; do
+        if [[ "$h265_preset" == "$preset" ]]; then
             valid_preset=1
             break
         fi
@@ -266,7 +293,7 @@ function check_user_input() {
         local valid
         echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Invalid H.264 preset '${preset}'!"
         echo "Valid Presets:"
-        for valid in "${h264_presets[@]}"; do
+        for valid in "${h265_presets[@]}"; do
             echo "  - '${valid}'"
         done
         exit 6
@@ -408,6 +435,7 @@ function check_vaapi() {
     echo "$vaapi_device"
 }
 
+# Function to construct the capture command.
 function construct_ffmpeg_command() {
     # Check whether VAAPI hardware acceleration is available.
     local vaapi_device
@@ -454,7 +482,7 @@ function construct_ffmpeg_command() {
             -af aresample=async=1                      # Resample the audio to keep it in sync with the video by introducing small adjustments.
 
             # Video Codec & Encoding Settings
-            -c:v h264_vaapi                            # Use H.264 video codec (with VAAPI hardware acceleration).
+            -c:v h265_vaapi                            # Use H.264 (HEVC) video codec with VAAPI hardware acceleration.
             -r "$frame_rate"                           # Set the output frame rate.
             -fps_mode cfr                              # Frames will be duplicated and dropped to achieve exactly the requested constant frame rate.
             -qp "$crf"                                 # Set Quantization Parameter.
@@ -491,7 +519,7 @@ function construct_ffmpeg_command() {
             -af aresample=async=1                      # Resample the audio to keep it in sync with the video by introducing small adjustments.
 
             # Video Codec & Encoding Settings
-            -c:v libx264                               # Use H.264 video codec.
+            -c:v libx265                               # Use H.264 (HEVC) video codec.
             -r "$frame_rate"                           # Set the output frame rate.
             -fps_mode cfr                              # Frames will be duplicated and dropped to achieve exactly the requested constant frame rate.
             -crf "$crf"                                # Set Constant Rate Factor.
@@ -517,7 +545,7 @@ function construct_ffmpeg_command() {
 }
 
 # Function to preview and confirm execution of the capture command.
-function confirm_command_execution() {
+function execute_capture() {
     local user_choice
     local final_command
     final_command="${ffmpeg_command[*]} > >(tee \"$output_path\" > \"$named_pipe\") 2>\"${output_path%.*}.log\" &"
@@ -532,6 +560,172 @@ function confirm_command_execution() {
         echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Operation cancelled by user!"
         exit 14
     fi
+
+    # Advise user.
+    echo -e "\n${ANSI_BLUE}[INFO]${ANSI_CLEAR} Capturing..."
+    echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} Complete the capture by requesting SIGINT (Ctrl + C)."
+
+    # Create log.
+    {
+        echo "################  INPUT VIDEO STANDARD  ################"
+        echo "${video_standard} (${video_resolution}) [${frame_rate} fps]"
+        echo ""
+        echo "################       VHS TO .TS       ################"
+        echo "----------------     FFMPEG COMMAND     ----------------"
+        echo "${ffmpeg_command[*]} > >(tee \"$output_path\" > \"$named_pipe\") 2>\"${output_path%.*}.log\" &"
+        echo ""
+        echo "---------------- FFMPEG OUTPUT (STDERR) ----------------"
+    } > "${output_path%.*}.log"
+
+    # Run FFMPEG.
+    # Split stdout using 'tee' to both the output file and the named pipe.
+    # Ensure stderr is instead captured within a log file.
+    "${ffmpeg_command[@]}" > >(tee "$output_path" > "$named_pipe") 2>>"${output_path%.*}.log" &
+    ffmpeg_pid=$!
+
+    # Start FFPLAY.
+    # This will provide a 'live preview' of what FFMPEG is capturing.
+    ffplay "$named_pipe" -window_title "TapeShift VHS Capture Preview" -fflags nobuffer &>/dev/null &
+    ffplay_pid=$!
+
+    # Prevent script from exiting until user issues SIGINT.
+    # Execution should only push past this point once either:
+    # 1. 'exit_script' is called via SIGINT (Ctrl + C).
+    # 2. Unexpected termination of FFMPEG.
+    wait "$ffmpeg_pid" 2>/dev/null
+
+    # If flag remains unset, FFMPEG/FFPLAY terminated without user-requested SIGINT.
+    if [[ "$ff_error_flag" -eq 1 ]]; then
+        echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} FFMPEG and/or FFPLAY command failed!"
+        echo "Please see the log at '${output_path%.*}.log' for details."
+        ff_error_flag=0
+        exit 15
+    fi
+}
+
+# Function to finalise the capture from '.ts' to '.mp4'.
+function finalise_capture() {
+    # Notify user.
+    echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} Finalising capture..."
+
+    # Convert the capture file to '.mp4' without re-encoding.
+    {
+        echo ""
+        echo "################       .TS TO MP4       ################"
+        echo "----------------     FFMPEG COMMAND     ----------------"
+        echo "ffmpeg -y -i \"$output_path\" -c:a copy -c:v copy \"${output_path%.*}.mp4\" 2>>\"${output_path%.*}.log\""
+        echo ""
+        echo "---------------- FFMPEG OUTPUT (STDERR) ----------------"
+    } >> "${output_path%.*}.log"
+    ffmpeg -y -i "$output_path" -c:a copy -c:v copy "${output_path%.*}.mp4" 2>>"${output_path%.*}.log"
+
+    # Remove the original capture file.
+    if [ -f "${output_path%.*}.mp4" ]; then
+        rm "$output_path"
+    else
+        echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Failed to finalise capture!"
+        echo "A partial, potentially corrupt capture may exist at '${output_path}'."
+        echo "Please see the log at '${output_path%.*}.log' for details."
+        ff_error_flag=0
+        exit 16
+    fi
+}
+
+# Function to trim the captured video.
+function trim_output() {
+    # Ask user if they would like to trim the resulting capture.
+    local user_choice
+    read -r -p "Would you like to trim the capture? (y/n): " user_choice
+
+    if [[ "$user_choice" =~ ^[yY]$ ]]; then
+        # Open the capture.
+        local media_player_pid
+        xdg-open "${output_path%.*}.mp4" &>/dev/null &
+        media_player_pid=$?
+
+        # Request trimming parameters from user.
+        echo "Please specify the start and end trim positions as either:"
+        echo "1. The number of seconds (e.g., 10, 10.5, 10s, 10ms, 10us)"
+        echo "2. The time in hours, minutes and seconds (e.g., 01:30:15, 1:30:15.5)"
+        local start_param
+        local end_param
+
+        # Validate user input.
+        # There are two accepted formats for expressing time duration:
+        # 1. [HH:]MM:SS[.m...] --> EXAMPLES: "01:30:15", "1:30:15.5", etc.
+        #     - HH expresses the number of hours (optional).
+        #     - MM expresses the number of minutes for a maximum of 2 digits.
+        #     - SS expresses the number of seconds for a maximum of 2 digits.
+        #     - The 'm' at the end expresses decimal value for SS (optional).
+        # 2. S+[.m...][s|ms|us] --> EXAMPLES: "55", "0.2", "200ms", "200000us", etc.
+        #     - S expresses the number of seconds/milliseconds/microseconds (with an optional decimal part 'm').
+        #     - The optional literal suffixes 's', 'ms' or 'us' indicate 'seconds', 'milliseconds' or 'microseconds'.
+        while true; do
+            read -r -p "Trim start position: " start_param
+            
+            # Validate start_param.
+            if [[ "$start_param" =~ ^([0-9]*:[0-5][0-9]:[0-5][0-9]([.][0-9]+)?)|([0-9]+([.][0-9]+)?(s|ms|us)?)$ ]]; then
+                break
+            else
+                echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} INVALID TRIM START POSITION!"
+            fi
+        done
+        
+        while true; do
+            read -r -p "Trim end position: " end_param
+
+            # Validate end_param.
+            if [[ "$end_param" =~ ^([0-9]*:[0-5][0-9]:[0-5][0-9]([.][0-9]+)?)|([0-9]+([.][0-9]+)?(s|ms|us)?)$ ]]; then
+                break
+            else
+                echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} INVALID TRIM END POSITION!"
+            fi
+        done
+
+        # Gracefully close FFPLAY with SIGTERM.
+        kill -SIGTERM "$media_player_pid"
+        wait "$media_player_pid"
+
+        # Confirm selection.
+        echo -e "\n${ANSI_BLUE}[INFO]${ANSI_CLEAR} The following command will be executed:"
+        echo ""
+        echo "----------------------------------------------------------------"
+        echo -e "${ANSI_GREY}ffmpeg -ss ${start_param} -i \"${output_path%.*}.mp4\" -to ${end_param} -c copy \"${output_path%.*}_TRIMMED.mp4\" 2>>\"${output_path%.*}.log\"${ANSI_CLEAR}"
+        echo "----------------------------------------------------------------"
+        echo ""
+        echo -e "${ANSI_YELLOW}[WARN]${ANSI_CLEAR} The untrimmed capture at '${output_path%.*}.mp4' will be permanently deleted if the trimming process is successful!"
+        read -r -p "Do you want to proceed with this command? (y/n): " user_choice
+        if [[ "$user_choice" =~ ^[yY]$ ]]; then
+            # Notify user.
+            echo -e "\n${ANSI_BLUE}[INFO]${ANSI_CLEAR} Trimming capture..."
+
+            # Write to log.
+            {
+                echo ""
+                echo "################    CAPTURE TRIMMING    ################"
+                echo "----------------     FFMPEG COMMAND     ----------------"
+                echo "ffmpeg -copyts -ss ${start_param} -i \"${output_path%.*}.mp4\" -to ${end_param} -map 0 -c copy \"${output_path%.*}_TRIMMED.mp4\""
+                echo ""
+                echo "---------------- FFMPEG OUTPUT (STDERR) ----------------"
+            } >> "${output_path%.*}.log"
+
+            # Run FFMPEG command.
+            ffmpeg -copyts -ss ${start_param} -i "${output_path%.*}.mp4" -to ${end_param} -map 0 -c copy "${output_path%.*}_TRIMMED.mp4" 2>>"${output_path%.*}.log"
+
+            # Check output.
+            if [ -f "${output_path%.*}_TRIMMED.mp4" ]; then
+                echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} Moving trimmed capture to '${output_path%.*}.mp4'."
+                rm "${output_path%.*}.mp4"
+                mv "${output_path%.*}_TRIMMED.mp4" "${output_path%.*}.mp4"
+            else
+                echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} FAILED TO TRIM CAPTURE!"
+                echo "The untrimmed capture at '${output_path%.*}.mp4' should still be playable."
+                echo "Please see the log at '${output_path%.*}.log' for details."
+                ff_error_flag=0
+                exit 17
+            fi
+        fi
+    fi
 }
 
 ##################
@@ -539,7 +733,7 @@ function confirm_command_execution() {
 ##################
 
 # Welcome the user.
-echo -e "VHS Digitisation Script v1.0.0 (28092024) by Rohan Barar\n"
+print_title
 
 # Check if all dependencies are available.
 check_dependencies
@@ -563,86 +757,16 @@ get_video_specs
 construct_ffmpeg_command
 
 # Allow the user to preview and approve the command prior to execution.
-confirm_command_execution
+execute_capture
 
-# Advise user.
-echo -e "\n${ANSI_BLUE}[INFO]${ANSI_CLEAR} Capturing..."
-echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} Complete the capture by requesting SIGINT (Ctrl + C)."
+# Finalise the capture.
+finalise_capture
 
-# Create log.
-{
-    echo "################  INPUT VIDEO STANDARD  ################"
-    echo "${video_standard} (${video_resolution}) [${frame_rate} fps]"
-    echo ""
-    echo "################       VHS TO .TS       ################"
-    echo "----------------     FFMPEG COMMAND     ----------------"
-    echo "${ffmpeg_command[*]} > >(tee \"$output_path\" > \"$named_pipe\") 2>\"${output_path%.*}.log\" &"
-    echo ""
-} > "${output_path%.*}.log"
-
-# Start FFMPEG.
-# Split stdout using 'tee' to both the output file and the named pipe.
-# Ensure stderr is instead captured within a log file.
-echo "---------------- FFMPEG OUTPUT (STDERR) ----------------" >> "${output_path%.*}.log"
-"${ffmpeg_command[@]}" > >(tee "$output_path" > "$named_pipe") 2>>"${output_path%.*}.log" &
-ffmpeg_pid=$!
-
-# Start FFPLAY.
-# This will provide a 'live preview' of what FFMPEG is capturing.
-ffplay "$named_pipe" -window_title "VHS Digitisation Preview" -fflags nobuffer &>/dev/null &
-ffplay_pid=$!
-
-# Prevent script from exiting until user issues SIGINT.
-# Execution should only push past this point once either:
-# 1. 'exit_script' is called via SIGINT (Ctrl + C).
-# 2. Unexpected termination of FFMPEG.
-wait "$ffmpeg_pid" 2>/dev/null
-
-# If flag remains unset, FFMPEG/FFPLAY terminated without user-requested SIGINT.
-if [[ "$ff_error_flag" -eq 1 ]]; then
-    echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} FFMPEG and/or FFPLAY command failed!"
-    echo "Please see the log at '${output_path%.*}.log' for details."
-    ff_error_flag=0
-    exit 15
-fi
+# Trim capture.
+trim_output
 
 # Notify user.
-echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} Finalising capture..."
+echo -e "${ANSI_GREEN}[DONE]${ANSI_CLEAR} Finished!"
 
-# Convert the capture file to '.mp4' without re-encoding.
-{
-    echo ""
-    echo "################       .TS TO MP4       ################"
-    echo "----------------     FFMPEG COMMAND     ----------------"
-    echo "ffmpeg -y -i \"$output_path\" -c:a copy -c:v copy \"${output_path%.*}.mp4\" 2>>\"${output_path%.*}.log\""
-    echo ""
-    echo "---------------- FFMPEG OUTPUT (STDERR) ----------------"
-} >> "${output_path%.*}.log"
-ffmpeg -y -i "$output_path" -c:a copy -c:v copy "${output_path%.*}.mp4" 2>>"${output_path%.*}.log"
-
-# Remove the original capture file.
-if [ -f "${output_path%.*}.mp4" ]; then
-    rm "$output_path"
-
-    # Provide trimming instructions.
-    echo ""
-    echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} To trim output file '${output_path%.*}.mp4', use:"
-    echo -e "${ANSI_GREY}ffmpeg -ss [start_time] -i \"${output_path%.*}.mp4\" -to [end_time] -c copy \"${output_path%.*}_trimmed.mp4\"${ANSI_CLEAR}"
-    echo "Both [start_time] and [end_time] can be specified using either 'hh:mm:ss' or as a number of seconds."
-    echo ""
-
-    # Notify user.
-    echo -e "${ANSI_GREEN}[DONE]${ANSI_CLEAR} Finished!"
-
-    # Log completion.
-    {
-        echo ""
-        echo "################        FINISHED        ################"
-    } >> "${output_path%.*}.log"
-else
-    echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Failed to finalise capture!"
-    echo "A partial, potentially corrupt capture may exist at '${output_path}'."
-    echo "Please see the log at '${output_path%.*}.log' for details."
-    ff_error_flag=0
-    exit 16
-fi
+# Log completion.
+echo -e "\n################        FINISHED        ################" >> "${output_path%.*}.log"
