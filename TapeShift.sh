@@ -18,7 +18,7 @@
 # 3  --> Nonexistent Audio Input Device.
 # 4  --> Invalid Audio Bitrate.
 # 5  --> Invalid CRF.
-# 6  --> Invalid H.264 Preset.
+# 6  --> Invalid H.265 Preset.
 # 7  --> Nonexistent Home Folder.
 # 8  --> Invalid Output Directory.
 # 9  --> Output Directory Creation Failure.
@@ -222,7 +222,7 @@ function capture_user_input() {
     read -r -p "Enter the audio device address (default: ${default_audio_device}): " audio_device
     read -r -p "Enter the audio bitrate in kbps (default: ${default_audio_bitrate}): " audio_bitrate
     read -r -p "Enter the Constant Rate Factor (CRF) value (default: ${default_crf}) [recommended: 20-23]: " crf
-    read -r -p "Enter the desired H.264 preset (default: ${default_preset}): " preset # "medium" provides a good balance between speed, quality and compression efficiency.
+    read -r -p "Enter the desired H.265 preset (default: ${default_preset}): " preset # "medium" provides a good balance between speed, quality and compression efficiency.
     read -r -p "Enter the output directory (default: ${default_output_directory}): " output_directory
     read -r -p "Enter the output file name (default: ${default_output_file_name}): " output_file_name
     echo ""
@@ -291,7 +291,7 @@ function check_user_input() {
 
     if [[ "$valid_preset" -eq 0 ]]; then
         local valid
-        echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Invalid H.264 preset '${preset}'!"
+        echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Invalid H.265 preset '${preset}'!"
         echo "Valid Presets:"
         for valid in "${h265_presets[@]}"; do
             echo "  - '${valid}'"
@@ -482,7 +482,7 @@ function construct_ffmpeg_command() {
             -af aresample=async=1                      # Resample the audio to keep it in sync with the video by introducing small adjustments.
 
             # Video Codec & Encoding Settings
-            -c:v h265_vaapi                            # Use H.264 (HEVC) video codec with VAAPI hardware acceleration.
+            -c:v h265_vaapi                            # Use H.265 (HEVC) video codec with VAAPI hardware acceleration.
             -r "$frame_rate"                           # Set the output frame rate.
             -fps_mode cfr                              # Frames will be duplicated and dropped to achieve exactly the requested constant frame rate.
             -qp "$crf"                                 # Set Quantization Parameter.
@@ -519,11 +519,11 @@ function construct_ffmpeg_command() {
             -af aresample=async=1                      # Resample the audio to keep it in sync with the video by introducing small adjustments.
 
             # Video Codec & Encoding Settings
-            -c:v libx265                               # Use H.264 (HEVC) video codec.
+            -c:v libx265                               # Use H.265 (HEVC) video codec.
             -r "$frame_rate"                           # Set the output frame rate.
             -fps_mode cfr                              # Frames will be duplicated and dropped to achieve exactly the requested constant frame rate.
             -crf "$crf"                                # Set Constant Rate Factor.
-            -preset "$preset"                          # Specify H.264 encoding preset.
+            -preset "$preset"                          # Specify H.265 encoding preset.
             -pix_fmt yuv420p                           # Ensure YUV 4:2:0 pixel format for wide compatibility.
             -use_wallclock_as_timestamps 1             # Synchronise the input streams based on the system clock (this will enforce monotonic timestamps).
 
