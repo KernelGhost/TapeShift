@@ -649,6 +649,7 @@ function trim_output() {
         echo "2. The time in hours, minutes and seconds (e.g., 01:30:15, 1:30:15.5)"
         local start_param
         local end_param
+        local valid_input
 
         # Validate user input.
         # There are two accepted formats for expressing time duration:
@@ -661,24 +662,25 @@ function trim_output() {
         #     - S expresses the number of seconds/milliseconds/microseconds (with an optional decimal part 'm').
         #     - The optional literal suffixes 's', 'ms' or 'us' indicate 'seconds', 'milliseconds' or 'microseconds'.
         while true; do
+            valid_input=1
             read -r -p "Trim start position: " start_param
-            
-            # Validate start_param.
-            if [[ "$start_param" =~ ^([0-9]+:)?([0-5][0-9]:[0-5][0-9]([.][0-9]+)?)|([0-9]+([.][0-9]+)?(s|ms|us)?)$ ]]; then
-                break
-            else
-                echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} INVALID TRIM START POSITION!"
-            fi
-        done
-        
-        while true; do
             read -r -p "Trim end position: " end_param
 
+            # Validate start_param.
+            if ! [[ "$start_param" =~ ^([0-9]+:)?([0-5][0-9]:[0-5][0-9]([.][0-9]+)?)|([0-9]+([.][0-9]+)?(s|ms|us)?)$ ]]; then
+                valid_input=0
+                echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} INVALID TRIM START POSITION!"
+            fi
+
             # Validate end_param.
-            if [[ "$end_param" =~ ^([0-9]*:[0-5][0-9]:[0-5][0-9]([.][0-9]+)?)|([0-9]+([.][0-9]+)?(s|ms|us)?)$ ]]; then
-                break
-            else
+            if ! [[ "$end_param" =~ ^([0-9]*:[0-5][0-9]:[0-5][0-9]([.][0-9]+)?)|([0-9]+([.][0-9]+)?(s|ms|us)?)$ ]]; then
+                valid_input=0
                 echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} INVALID TRIM END POSITION!"
+            fi
+
+            # Break loop only if both inputs were valid.
+            if [ "$valid_input" -eq 1 ]; then
+                break
             fi
         done
 
