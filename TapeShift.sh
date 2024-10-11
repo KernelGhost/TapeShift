@@ -562,7 +562,7 @@ function execute_capture() {
     fi
 
     # Advise user.
-    echo -e "\n${ANSI_BLUE}[INFO]${ANSI_CLEAR} Capturing..."
+    echo -e "\n${ANSI_BLUE}[INFO]${ANSI_CLEAR} [$(date +"%d/%m/%Y %H:%M:%S")] Capturing..."
     echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} Complete the capture by requesting SIGINT (Ctrl + C)."
 
     # Create log.
@@ -588,11 +588,52 @@ function execute_capture() {
     ffplay "$named_pipe" -window_title "TapeShift VHS Capture Preview" -fflags nobuffer &>/dev/null &
     ffplay_pid=$!
 
+    # Display timestamp counter.
+    local start_time
+    local blink_state
+    start_time=$(date +%s)
+    blink_state=0
+    while kill -0 "$ffmpeg_pid" 2>/dev/null; do
+        local current_time
+        local elapsed_time
+        current_time=$(date +%s)
+        elapsed_time=$(( current_time - start_time ))
+
+        # Convert elapsed time to HH:MM:SS format.
+        local hours
+        local minutes
+        local seconds
+        hours=$(( elapsed_time / 3600 ))
+        minutes=$(( (elapsed_time % 3600) / 60 ))
+        seconds=$(( elapsed_time % 60 ))
+
+        # Print the timer and overwrite the line.
+        printf "\r%b[RECORDING]%b %02d:%02d:%02d" "$ANSI_RED" "$ANSI_CLEAR" "$hours" "$minutes" "$seconds"
+
+        # Produce a red flashing circle to indicate recording capture.
+        if (( blink_state == 0 )); then
+            # Print a red circle.
+            printf "%b%b%b" "$ANSI_RED" "\u25C9" "$ANSI_CLEAR"
+        else
+            # Clear red circle by printing two spaces.
+            printf "  "
+        fi
+
+        # Toggle the blink state.
+        blink_state=$(( (blink_state + 1) % 2 ))
+
+        # Note: 'sleep' does NOT prevent Ctrl+C (SIGINT) from being captured.
+        sleep 1
+    done
+
     # Prevent script from exiting until user issues SIGINT.
     # Execution should only push past this point once either:
     # 1. 'exit_script' is called via SIGINT (Ctrl + C).
     # 2. Unexpected termination of FFMPEG.
     wait "$ffmpeg_pid" 2>/dev/null
+
+    # Move to a new line after the process finishes.
+    echo ""
 
     # If flag remains unset, FFMPEG/FFPLAY terminated without user-requested SIGINT.
     if [[ "$ff_error_flag" -eq 1 ]]; then
