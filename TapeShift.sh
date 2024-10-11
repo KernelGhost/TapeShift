@@ -714,9 +714,11 @@ function trim_output() {
             fi
 
             # Validate end_param.
-            if ! [[ "$end_param" =~ ^([0-9]*:[0-5][0-9]:[0-5][0-9]([.][0-9]+)?)|([0-9]+([.][0-9]+)?(s|ms|us)?)$ ]]; then
-                valid_input=0
-                echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} INVALID TRIM END POSITION!"
+            if [ "$valid_input" -ne 0 ]; then
+                if ! [[ "$end_param" =~ ^([0-9]*:[0-5][0-9]:[0-5][0-9]([.][0-9]+)?)|([0-9]+([.][0-9]+)?(s|ms|us)?)$ ]]; then
+                    valid_input=0
+                    echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} INVALID TRIM END POSITION!"
+                fi
             fi
 
             # Break loop only if both inputs were valid.
