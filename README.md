@@ -245,7 +245,7 @@ Although I have submitted a patch to add support for '1D19:6108' [here](https://
 > [!IMPORTANT]
 > Steps marked as '(Optional)' are mandatory on systems with 'Secure Boot' enabled.
 > The process of manually compiling and signing the patched version of the driver will need to be repeated each time the kernel is updated.
-> While there are automated solutions available (e.g. DKMS), the method described above serves as a temporary workaround until [my patch](https://lore.kernel.org/linux-media/20240926235048.283608-2-rohan.barar@gmail.com/T/#u) is merged into the `cx231xx` driver.
+> While there are automated solutions available (e.g. DKMS), the method described above serves as a temporary workaround until [my patch](https://lore.kernel.org/linux-media/20241003094039.2893301-2-rohan.barar@gmail.com/) is merged into the `cx231xx` driver.
 
 > [!NOTE]
 > You can easily undo all the above changes and switch back to the default version of the `cx231xx` driver by:
