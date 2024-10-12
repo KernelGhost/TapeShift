@@ -43,7 +43,7 @@ Key features include:
     ```
 
 ## Patching `cx231xx`
-Although [a patch has been submitted to add support for '1D19:6108'](https://lore.kernel.org/linux-media/20240926235048.283608-2-rohan.barar@gmail.com/T/#u), for the time being the `cx231xx` driver must be manually modified, compiled and signed.
+Although I have submitted a patch to add support for '1D19:6108' [here](https://patchwork.linuxtv.org/project/linux-media/patch/20241003094039.2893301-2-rohan.barar@gmail.com/), for the time being the `cx231xx` driver must be manually modified, compiled and signed.
 
 1. Install the required development tools.
 
