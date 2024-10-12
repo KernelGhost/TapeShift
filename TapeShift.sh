@@ -562,8 +562,8 @@ function execute_capture() {
     fi
 
     # Advise user.
-    echo -e "\n${ANSI_BLUE}[INFO]${ANSI_CLEAR} [$(date +"%d/%m/%Y %H:%M:%S")] Capturing..."
     echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} Complete the capture by requesting SIGINT (Ctrl + C)."
+    echo -e "\n${ANSI_BLUE}[INFO]${ANSI_CLEAR} Started at $(date +"%H:%M:%S") on $(date +"%d/%m/%Y")."
 
     # Create log.
     {
