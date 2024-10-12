@@ -612,8 +612,8 @@ function execute_capture() {
 
         # Produce a red flashing circle to indicate recording capture.
         if (( blink_state == 0 )); then
-            # Print a red circle.
-            printf "%b%b%b" "$ANSI_RED" "\u25C9" "$ANSI_CLEAR"
+            # Print a space followed by a red circle.
+            printf "%b %b%b" "$ANSI_RED" "\u25C9" "$ANSI_CLEAR"
         else
             # Clear red circle by printing two spaces.
             printf "  "
