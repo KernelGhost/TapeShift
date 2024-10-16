@@ -729,7 +729,6 @@ function trim_output() {
 
         # Gracefully close FFPLAY with SIGTERM.
         kill -SIGTERM "$media_player_pid"
-        wait "$media_player_pid"
 
         # Confirm selection.
         echo -e "\n${ANSI_BLUE}[INFO]${ANSI_CLEAR} The following command will be executed:"
