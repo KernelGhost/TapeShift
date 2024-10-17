@@ -18,7 +18,7 @@
 # 3  --> Nonexistent Audio Input Device.
 # 4  --> Invalid Audio Bitrate.
 # 5  --> Invalid CRF.
-# 6  --> Invalid H.265 Preset.
+# 6  --> Invalid Codec Preset.
 # 7  --> Nonexistent Home Folder.
 # 8  --> Invalid Output Directory.
 # 9  --> Output Directory Creation Failure.
@@ -51,9 +51,9 @@ readonly ANSI_RED
 readonly ANSI_YELLOW
 
 # User Input Default Values
-default_audio_bitrate="192"                                   # Capture audio bitrate in kbps.
+default_audio_bitrate="128"                                   # Capture audio bitrate in kbps.
 default_crf="21"                                              # Constant Rate Factor (CRF).
-default_preset="fast"                                         # H265 encoding preset.
+default_preset="fast"                                         # H264 preset.
 default_output_directory="."                                  # Output the capture in the working directory.
 default_output_file_name="VHS_$(date +"%Y%m%d_%H%M%S").ts"    # Example: 'VHS_20240927_220756.ts'.
 readonly default_audio_bitrate
@@ -63,10 +63,10 @@ readonly default_output_directory
 readonly default_output_file_name
 
 # Other
-h265_presets=("ultrafast" "superfast" "veryfast" "faster" "fast" "medium" "slow" "slower" "veryslow" "placebo")
+codec_presets=("ultrafast" "superfast" "veryfast" "faster" "fast" "medium" "slow" "slower" "veryslow" "placebo")
 illegal_chars='[<>:"|?*]'     # Characters not permitted in directory names and paths.
 named_pipe="/tmp/vhs_pipe"    # Path to named pipe used to facilitate live preview during capture.
-readonly h265_presets
+readonly codec_presets
 readonly illegal_chars
 readonly named_pipe
 
@@ -221,8 +221,8 @@ function capture_user_input() {
     read -r -p "Enter the video input device (default: ${default_video_device}): " video_device
     read -r -p "Enter the audio device address (default: ${default_audio_device}): " audio_device
     read -r -p "Enter the audio bitrate in kbps (default: ${default_audio_bitrate}): " audio_bitrate
-    read -r -p "Enter the Constant Rate Factor (CRF) value (default: ${default_crf}) [recommended: 20-23]: " crf
-    read -r -p "Enter the desired H.265 preset (default: ${default_preset}): " preset # "medium" provides a good balance between speed, quality and compression efficiency.
+    read -r -p "Enter the Constant Rate Factor (CRF) value (default: ${default_crf}) [recommended: 18-23]: " crf
+    read -r -p "Enter the desired H.264 preset (default: ${default_preset}): " preset # "medium" provides a good balance between speed, quality and compression efficiency.
     read -r -p "Enter the output directory (default: ${default_output_directory}): " output_directory
     read -r -p "Enter the output file name (default: ${default_output_file_name}): " output_file_name
     echo ""
@@ -280,10 +280,10 @@ function check_user_input() {
     fi
 
     # Validate requested preset.
-    local h265_preset
+    local codec_preset
     local valid_preset=0
-    for h265_preset in "${h265_presets[@]}"; do
-        if [[ "$h265_preset" == "$preset" ]]; then
+    for codec_preset in "${codec_presets[@]}"; do
+        if [[ "$codec_preset" == "$preset" ]]; then
             valid_preset=1
             break
         fi
@@ -291,9 +291,9 @@ function check_user_input() {
 
     if [[ "$valid_preset" -eq 0 ]]; then
         local valid
-        echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Invalid H.265 preset '${preset}'!"
+        echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} Invalid H.264 preset '${preset}'!"
         echo "Valid Presets:"
-        for valid in "${h265_presets[@]}"; do
+        for valid in "${codec_presets[@]}"; do
             echo "  - '${valid}'"
         done
         exit 6
@@ -444,6 +444,7 @@ function construct_ffmpeg_command() {
     if [ -n "$vaapi_device" ]; then
         local user_choice
         echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} VAAPI-based hardware acceleration is available!"
+        echo -e "${ANSI_YELLOW}[WARN]${ANSI_CLEAR} Hardware-accelerated H.264 encoding DOES NOT support creation of interlaced video!"
         read -r -p "Do you wish to utilise hardware acceleration? (y/n): " user_choice
         if [[ ! "$user_choice" =~ ^[yY]$ ]]; then
             echo -e "\n${ANSI_YELLOW}[WARN]${ANSI_CLEAR} Hardware acceleration disabled!"
@@ -451,6 +452,9 @@ function construct_ffmpeg_command() {
             vaapi_device=""
         else
             echo -e "\n${ANSI_YELLOW}[WARN]${ANSI_CLEAR} The '-preset' parameter will be ignored with VAAPI!"
+            echo -e "${ANSI_YELLOW}[WARN]${ANSI_CLEAR} The output video will use progressive scanning instead of interlaced scanning!"
+            echo "Use the following command to correct this later, adjusting the input and output file paths, constant rate factor and audio bitrate as desired:"
+            echo -e "${ANSI_GREY}ffmpeg -i \"/path/to/input.mp4\" -field_order tt -c:v libx264 -crf 18 -preset veryslow -x264opts tff=1 -weightp none -c:a aac -b:a 128k -ac 2 \"/path/to/output.mp4\"${ANSI_CLEAR}"
         fi
     fi
 
@@ -482,11 +486,11 @@ function construct_ffmpeg_command() {
             -af aresample=async=1                      # Resample the audio to keep it in sync with the video by introducing small adjustments.
 
             # Video Codec & Encoding Settings
-            -c:v hevc_vaapi                            # Use HEVC (H.265) video codec with VAAPI hardware acceleration.
+            -c:v h264_vaapi                            # Use H.264 codec with VAAPI hardware acceleration.
             -r "$frame_rate"                           # Set the output frame rate.
             -fps_mode cfr                              # Frames will be duplicated and dropped to achieve exactly the requested constant frame rate.
             -qp "$crf"                                 # Set Quantization Parameter.
-            -pix_fmt nv12                              # Specify nv12 pixel format.
+            -pix_fmt vaapi                             # Specify 'vaapi' pixel format.
             -use_wallclock_as_timestamps 1             # Synchronise the input streams based on the system clock (this will enforce monotonic timestamps).
 
             # Interlacing & Field Order Settings
@@ -519,11 +523,11 @@ function construct_ffmpeg_command() {
             -af aresample=async=1                      # Resample the audio to keep it in sync with the video by introducing small adjustments.
 
             # Video Codec & Encoding Settings
-            -c:v libx265                               # Use H.265 (HEVC) video codec.
+            -c:v libx264                               # Use H.264 codec.
             -r "$frame_rate"                           # Set the output frame rate.
             -fps_mode cfr                              # Frames will be duplicated and dropped to achieve exactly the requested constant frame rate.
             -crf "$crf"                                # Set Constant Rate Factor.
-            -preset "$preset"                          # Specify H.265 encoding preset.
+            -preset "$preset"                          # Specify H.264 preset.
             -pix_fmt yuv420p                           # Ensure YUV 4:2:0 pixel format for wide compatibility.
             -use_wallclock_as_timestamps 1             # Synchronise the input streams based on the system clock (this will enforce monotonic timestamps).
 
