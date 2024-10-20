@@ -7,7 +7,7 @@
 # About:     Script for digitising VHS tapes using a USB capture device
 # Device:    1D19:6108 Dexatek Technology Ltd USB Video Grabber
 # Author:    Rohan Barar <rohan.barar@gmail.com>
-# Date:      03 October 2024
+# Date:      21 October 2024
 #########################################################################
 
 # Exit Status Codes:
@@ -30,6 +30,7 @@
 # 15 --> FFMPEG/FFPLAY Command Failure.
 # 16 --> Capture Finalisation Failure.
 # 17 --> Capture Trimming Failure.
+# 18 --> Capture Re-encoding Failure.
 # -----------------------------------------------------------------------
 
 # TRAP SIGNALS
@@ -96,6 +97,7 @@ ffmpeg_command=()        # Used to construct the FFMPEG command.
 ffmpeg_pid=""            # Set by '$!' at runtime.
 ffplay_pid=""            # Set by '$!' at runtime.
 ff_error_flag=1          # Used to detect unexpected termination of FFMPEG.
+vaapi_used=0             # Signifies whether hardware acceleration is used or not.
 
 # FUNCTIONS
 # Function to ensure a clean exit on SIGINT & SIGTERM.
@@ -150,7 +152,7 @@ EOF
 
     # Print version and author information.
     echo -e "${BOLD_ITALIC_TEXT}\
-       v1.0.0 (03102024) by Rohan Barar       \
+       v1.0.0 (21102024) by Rohan Barar       \
 ${ANSI_CLEAR}\n"
 }
 
@@ -222,7 +224,7 @@ function capture_user_input() {
     read -r -p "Enter the audio device address (default: ${default_audio_device}): " audio_device
     read -r -p "Enter the audio bitrate in kbps (default: ${default_audio_bitrate}): " audio_bitrate
     read -r -p "Enter the Constant Rate Factor (CRF) value (default: ${default_crf}) [recommended: 18-23]: " crf
-    read -r -p "Enter the desired H.264 preset (default: ${default_preset}): " preset # "medium" provides a good balance between speed, quality and compression efficiency.
+    read -r -p "Enter the desired H.264 preset (default: ${default_preset}): " preset
     read -r -p "Enter the output directory (default: ${default_output_directory}): " output_directory
     read -r -p "Enter the output file name (default: ${default_output_file_name}): " output_file_name
     echo ""
@@ -452,9 +454,9 @@ function construct_ffmpeg_command() {
             vaapi_device=""
         else
             echo -e "\n${ANSI_YELLOW}[WARN]${ANSI_CLEAR} The '-preset' parameter will be ignored with VAAPI!"
-            echo -e "${ANSI_YELLOW}[WARN]${ANSI_CLEAR} The output video will use progressive scanning instead of interlaced scanning!"
-            echo "Use the following command to correct this later, adjusting the input and output file paths, constant rate factor and audio bitrate as desired:"
-            echo -e "${ANSI_GREY}ffmpeg -i \"/path/to/input.mp4\" -field_order tt -c:v libx264 -crf 18 -preset veryslow -x264opts tff=1 -weightp none -c:a aac -b:a 128k -ac 2 \"/path/to/output.mp4\"${ANSI_CLEAR}"
+            echo -e "${ANSI_YELLOW}[WARN]${ANSI_CLEAR} The output video will be progressively scanned instead of utilising interlaced fields!"
+            echo -e "${ANSI_BLUE}[NOTE]${ANSI_CLEAR} You may choose to re-encode the video to correctly utilise interlaced fields upon capture completion."
+            vaapi_used=1
         fi
     fi
 
@@ -776,6 +778,57 @@ function trim_output() {
     fi
 }
 
+# Function to force top-field first interlacing of progressive capture produced using VAAPI hardware accelerated encoding.
+function interlace_output() {
+    # 'libx264' supports creation (encoding) of interlaced video, whereas 'h264_vaapi' DOES NOT.
+    # Therefore, only offer to perform this operation if VAAPI was used to create the output video.
+    if [ "$vaapi_used" -eq "1" ]; then
+        # Ask the user.
+        local user_choice
+        read -r -p "Do you wish to re-encode '${output_path%.*}.mp4' to correctly utilise interlaced fields? (y/n): " user_choice
+        if [[ "$user_choice" =~ ^[yY]$ ]]; then
+            echo -e "\n${ANSI_BLUE}[INFO]${ANSI_CLEAR} The following command will be executed:"
+            echo ""
+            echo "----------------------------------------------------------------"
+            echo -e "${ANSI_GREY}ffmpeg -i \"${output_path%.*}.mp4\" -field_order tt -c:v libx264 -crf ${crf} -preset veryslow -x264opts tff=1 -weightp none -c:a copy \"${output_path%.*}_INTERLACED.mp4\" 2>>\"${output_path%.*}.log\"${ANSI_CLEAR}"
+            echo "----------------------------------------------------------------"
+            echo ""
+
+            read -r -p "Do you want to proceed with this command? (y/n): " user_choice
+            if [[ "$user_choice" =~ ^[yY]$ ]]; then
+                # Notify user.
+                echo -e "\n${ANSI_BLUE}[INFO]${ANSI_CLEAR} Re-encoding capture..."
+
+                # Write to log.
+                {
+                    echo ""
+                    echo "################   CAPTURE REENCODING   ################"
+                    echo "----------------     FFMPEG COMMAND     ----------------"
+                    echo "ffmpeg -i \"${output_path%.*}.mp4\" -field_order tt -c:v libx264 -crf ${crf} -preset veryslow -x264opts tff=1 -weightp none -c:a copy \"${output_path%.*}_INTERLACED.mp4\" 2>>\"${output_path%.*}.log\""
+                    echo ""
+                    echo "---------------- FFMPEG OUTPUT (STDERR) ----------------"
+                } >> "${output_path%.*}.log"
+
+                # Run FFMPEG command.
+                ffmpeg -i "${output_path%.*}.mp4" -field_order tt -c:v libx264 -crf "$crf" -preset veryslow -x264opts tff=1 -weightp none -c:a copy "${output_path%.*}_INTERLACED.mp4" 2>>"${output_path%.*}.log"
+
+                # Check output.
+                if [ -f "${output_path%.*}_INTERLACED.mp4" ]; then
+                    echo -e "${ANSI_BLUE}[INFO]${ANSI_CLEAR} Moving interlaced re-encoded capture to '${output_path%.*}.mp4'."
+                    rm "${output_path%.*}.mp4"
+                    mv "${output_path%.*}_INTERLACED.mp4" "${output_path%.*}.mp4"
+                else
+                    echo -e "${ANSI_RED}[ERR]${ANSI_CLEAR} FAILED TO RE-ENCODE CAPTURE!"
+                    echo "The original capture at '${output_path%.*}.mp4' should still be playable."
+                    echo "Please see the log at '${output_path%.*}.log' for details."
+                    ff_error_flag=0
+                    exit 18
+                fi
+            fi
+        fi
+    fi
+}
+
 ##################
 # MAINLINE LOGIC #
 ##################
@@ -812,6 +865,9 @@ finalise_capture
 
 # Trim capture.
 trim_output
+
+# Interlace output.
+interlace_output
 
 # Notify user.
 echo -e "${ANSI_GREEN}[DONE]${ANSI_CLEAR} Finished!"
