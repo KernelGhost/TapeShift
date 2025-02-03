@@ -42,8 +42,24 @@ Key features include:
     ./TapeShift.sh
     ```
 
-## Patching `cx231xx`
-Although I have submitted a patch to add support for '1D19:6108' [here](https://patchwork.linuxtv.org/project/linux-media/patch/20241003094039.2893301-2-rohan.barar@gmail.com/), for the time being the `cx231xx` driver must be manually modified, compiled and signed.
+## Demonstration
+<img src="./Multimedia/Demonstration.png" alt="Demonstration" width="720">
+
+## Sample Video Capture Showcase
+https://github.com/KernelGhost/TapeShift/raw/refs/heads/main/Multimedia/Showcase.mp4
+
+## Product Images
+<table>
+    <tr>
+        <td><img src="./Multimedia/1.jpg" alt="Demonstration" width="200"></td>
+        <td><img src="./Multimedia/2.jpg" alt="Demonstration" width="200"></td>
+        <td><img src="./Multimedia/3.jpg" alt="Demonstration" width="200"></td>
+    </tr>
+</table>
+
+## Patching, Compiling & Signing `cx231xx`
+> [!IMPORTANT]
+> Following these instructions is generally no longer necessary unless you are using an older Linux kernel. Support for '1D19:6108' has been added to the `cx231xx` driver through [my patch](https://patchwork.linuxtv.org/project/linux-media/patch/20241003094039.2893301-2-rohan.barar@gmail.com/), which has now been [merged](https://github.com/torvalds/linux/commit/61a830bc0ea69a05d8a4534f825c6aa618263649).
 
 1. Install the required development tools.
 
@@ -253,18 +269,3 @@ Although I have submitted a patch to add support for '1D19:6108' [here](https://
 > 2. Using `mv` to rename the default driver back to its original name (i.e., remove '.bak').
 > 3. Running `sudo dracut --force`, `sudo modprobe -r cx231xx` and `sudo modprobe cx231xx`.
 > 4. Removing the public key from the UEFI using `sudo mokutil --delete ~/keys/public_key_for_cx231xx.der`. Please only do this if no other kernel modules have been signed using the same key!
-
-## Demonstration
-<img src="./Multimedia/Demonstration.png" alt="Demonstration" width="720">
-
-## Sample Video Capture Showcase
-https://github.com/KernelGhost/TapeShift/raw/refs/heads/main/Multimedia/Showcase.mp4
-
-## Product Images
-<table>
-    <tr>
-        <td><img src="./Multimedia/1.jpg" alt="Demonstration" width="200"></td>
-        <td><img src="./Multimedia/2.jpg" alt="Demonstration" width="200"></td>
-        <td><img src="./Multimedia/3.jpg" alt="Demonstration" width="200"></td>
-    </tr>
-</table>
