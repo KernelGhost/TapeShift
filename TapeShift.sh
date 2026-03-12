@@ -55,7 +55,7 @@ readonly ANSI_YELLOW
 default_audio_bitrate="128"                                   # Capture audio bitrate in kbps.
 default_crf="21"                                              # Constant Rate Factor (CRF).
 default_preset="fast"                                         # H264 preset.
-default_output_directory="."                                  # Output the capture in the working directory.
+default_output_directory="${HOME}/Videos"                     # Output the capture in the working directory.
 default_output_file_name="VHS_$(date +"%Y%m%d_%H%M%S").ts"    # Example: 'VHS_20240927_220756.ts'.
 readonly default_audio_bitrate
 readonly default_crf
@@ -140,20 +140,18 @@ function print_title() {
     # ASCII Art: 'Calligraphy' by Evangelos "GeopJr" Paterakis (Theme: 'Big')
     # https://flathub.org/apps/dev.geopjr.Calligraphy
     cat << "EOF"
- _______                _____ _     _  __ _   
-|__   __|              / ____| |   (_)/ _| |  
-   | | __ _ _ __   ___| (___ | |__  _| |_| |_ 
+ _______                _____ _     _  __ _
+|__   __|              / ____| |   (_)/ _| |
+   | | __ _ _ __   ___| (___ | |__  _| |_| |_
    | |/ _` | '_ \ / _ \\___ \| '_ \| |  _| __|
-   | | (_| | |_) |  __/____) | | | | | | | |_ 
+   | | (_| | |_) |  __/____) | | | | | | | |_
    |_|\__,_| .__/ \___|_____/|_| |_|_|_|  \__|
-           | |                                
-           |_|                                
+           | |
+           |_|
 EOF
 
     # Print version and author information.
-    echo -e "${BOLD_ITALIC_TEXT}\
-       v1.0.0 (21102024) by Rohan Barar       \
-${ANSI_CLEAR}\n"
+    echo -e "${BOLD_ITALIC_TEXT}       v1.0.0 (21102024) by Rohan Barar       ${ANSI_CLEAR}\n"
 }
 
 # Function to check if all required dependencies are available.
